@@ -1,4 +1,4 @@
-package sys.be4man.global.controller;
+package com.target.global.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/health")
+@RequestMapping("/api/health")
 @Slf4j
 public class HealthController {
     @Value("${server.port}")

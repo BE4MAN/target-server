@@ -1,10 +1,10 @@
-package sys.be4man;
+package com.target;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class Be4manServerApplicationTests {
+class TargetServerApplicationTests {
 
     @Test
     void contextLoads() {

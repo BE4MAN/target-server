@@ -1,7 +1,8 @@
 spring:
   application:
-    name: be4man-server
+    name: target-server
 
+#  TODO: .env -> 클라우드 DB 연결
   datasource:
     url: jdbc:postgresql://localhost:5432/be4man
     username: be4man

@@ -1,4 +1,4 @@
-package sys.be4man.global.config.security;
+package com.target.global.config.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,23 +19,7 @@ public class SecurityConfig {
             // 공개 목록
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(
-                        "/"
-                        , "/health"
-
-                        // swagger
-                        , "/v3/api-docs/**"
-                        , "/swagger-ui/**"
-                        , "/swagger-ui.html"
-                        , "/swagger-resources/**"
-                        , "/webjars/**"
-                        , "/swagger-ui/index.html"
-
-                        // 인증 (login, logout)
-
-                        // h2 콘솔
-
-                        //
-
+                        "/**"
                     )
                     .permitAll()
 
