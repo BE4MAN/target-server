@@ -2,38 +2,9 @@ spring:
   application:
     name: target-server
 
-#  TODO: .env -> 클라우드 DB 연결
   datasource:
-    url: jdbc:postgresql://localhost:5432/be4man
-    username: be4man
-    password: password
-    driver-class-name: org.postgresql.Driver
-
-  # JPA
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-    open-in-view: false
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-
-  servlet:
-    multipart:
-      max-file-size: 20MB
-      max-request-size: 20MB
-
-  # Redis
-  data:
-    redis:
-      host: localhost
-      port: 6379
+    url: jdbc:h2:mem:db
+    driver-class-name: org.h2.Driver
 
 # Server
 server:
@@ -43,14 +14,6 @@ server:
 logging:
   level:
     root: INFO
-    org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
-
-# Swagger
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-  api-docs:
-    path: /api-docs
