@@ -2,14 +2,34 @@ name: Trigger Jenkins Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    env:
+      JENKINS_URL: http://34.22.109.154:8081
+      JOB_NAME: be4man-target-server
+      TRIGGER_TOKEN: deploy
+      JENKINS_USER: admin
     steps:
+      - name: Get CSRF crumb (best-effort)
+        id: crumb
+        run: |
+          set -e
+          CRUMB=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)" || true)
+          echo "crumb=$CRUMB" >> $GITHUB_OUTPUT
+          echo "CRUMB=${CRUMB}"
+
       - name: Trigger Jenkins Job
         run: |
-          curl -X POST "http://34.22.109.154:8081/job/be4man-target-server/build?token=deploy" \
-          --user "admin:${{ secrets.JENKINS_TOKEN }}"
+          set -e
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            -H "${{ steps.crumb.outputs.crumb }}" \
+            "${JENKINS_URL}/job/${JOB_NAME}/build?token=${TRIGGER_TOKEN}&cause=github+action")
+          echo "HTTP_STATUS=${STATUS}"
+          if [ "$STATUS" != "201" ] && [ "$STATUS" != "302" ] && [ "$STATUS" != "200" ]; then
+            echo "Failed to trigger Jenkins"; exit 1
+          fi
