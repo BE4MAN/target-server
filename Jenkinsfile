@@ -51,17 +51,30 @@ pipeline {
 
     stage('Switch Nginx (Blue ↔ Green)') {
       steps {
-        sh '''
-          if docker exec nginx grep -q "target-server-blue" /etc/nginx/conf.d/default.conf; then
-            docker exec nginx sed -i 's/target-server-blue/target-server-green/' /etc/nginx/conf.d/default.conf
-          else
-            docker exec nginx sed -i 's/target-server-green/target-server-blue/' /etc/nginx/conf.d/default.conf
-          fi
-          docker exec nginx nginx -s reload
-        '''
+        script {
+          echo "🔁 Nginx 트래픽 전환 준비 중..."
+          
+          sh """
+            echo '새 컨테이너 DNS 반영 대기 중...'
+            for i in {1..10}; do
+              if docker exec nginx ping -c 1 ${NEXT_CONTAINER} > /dev/null 2>&1; then
+                echo 'DNS 등록 확인됨'
+                break
+              fi
+              echo '...아직 반영 안 됨, 1초 대기'
+              sleep 1
+            done
+          """
+
+          sh """
+            echo 'Nginx 설정을 ${NEXT_CONTAINER}로 전환 중...'
+            docker exec nginx sed -i "s/target-server-[a-z]\\+/target-server-${NEXT}/" /etc/nginx/conf.d/default.conf
+            docker exec nginx nginx -s reload
+          """
+        }
       }
     }
-    
+
     stage('Cleanup Old Containers') {
       steps {
         script {
