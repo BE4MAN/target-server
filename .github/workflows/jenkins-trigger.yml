@@ -10,56 +10,24 @@ jobs:
     env:
       JENKINS_URL: http://34.22.109.154:8081
       JOB_NAME: be4man-target-server
-      TRIGGER_TOKEN: deploy
       JENKINS_USER: be4man
     steps:
-      - name: Try get CSRF crumb (best-effort)
+      - name: Get Crumb
         id: crumb
-        shell: bash
         run: |
           set -e
-          RESP=$(curl -s -w "\n%{http_code}" -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
-                 "${JENKINS_URL}/crumbIssuer/api/json" || true)
-          BODY=$(echo "$RESP" | head -n -1)
-          CODE=$(echo "$RESP" | tail -n 1)
-          echo "CRUMB_HTTP_CODE=$CODE"
-          # 성공(200)일 때만 JSON 파싱해서 "Field:Value" 헤더 문자열 만들기
-          if [ "$CODE" = "200" ]; then
-            FIELD=$(echo "$BODY" | sed -n 's/.*"crumbRequestField":"\([^"]*\)".*/\1/p')
-            CRUMB=$(echo  "$BODY" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')
-            if [ -n "$FIELD" ] && [ -n "$CRUMB" ]; then
-              HEADER="${FIELD}:${CRUMB}"
-              echo "crumb_header=$HEADER" >> "$GITHUB_OUTPUT"
-              echo "Using crumb header: $FIELD:***"
-            else
-              echo "No crumb fields found in JSON; will call without crumb."
-              echo "crumb_header=" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "Crumb request not authorized (code=$CODE). Will call without crumb."
-            echo "crumb_header=" >> "$GITHUB_OUTPUT"
-          fi
+          CRUMB=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            "${JENKINS_URL}/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')
+          echo "crumb=$CRUMB" >> $GITHUB_OUTPUT
 
-      - name: Trigger Jenkins Job
-        shell: bash
+      - name: Trigger Jenkins (with crumb)
         run: |
           set -e
-          CRUMB_HEADER="${{ steps.crumb.outputs.crumb_header }}"
-          URL="${JENKINS_URL}/job/${JOB_NAME}/build?token=${TRIGGER_TOKEN}&cause=github+action"
-
-          echo "Calling: $URL"
-          if [ -n "$CRUMB_HEADER" ]; then
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
-              -H "$CRUMB_HEADER" "$URL")
-          else
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
-              "$URL")
-          fi
-
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            -H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}" \
+            "${JENKINS_URL}/job/${JOB_NAME}/build?delay=0sec")
           echo "HTTP_STATUS=$STATUS"
           if [ "$STATUS" != "201" ] && [ "$STATUS" != "302" ] && [ "$STATUS" != "200" ]; then
-            echo "Failed to trigger Jenkins. Check credentials/token/URL/port/firewall."
-            exit 1
+            echo "Failed to trigger Jenkins"; exit 1
           fi
