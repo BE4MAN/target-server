@@ -61,9 +61,25 @@ pipeline {
         '''
       }
     }
+    
+    stage('Cleanup Old Containers') {
+      steps {
+        script {
+          echo "이전 컨테이너 정리 중..."
+          def oldContainer = (env.NEXT == 'blue') ? env.CONTAINER_GREEN : env.CONTAINER_BLUE
+          sh """
+            docker stop ${oldContainer} || true
+            docker rm ${oldContainer} || true
+          """
+        }
+      }
+    }
 
     stage('Cleanup Old Images') {
-      steps { sh "docker image prune -f" }
+      steps {
+        echo "안쓰는 이미지 정리 중..."
+        sh "docker image prune -f"
+      }
     }
   }
 }
