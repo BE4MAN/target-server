@@ -3,15 +3,15 @@ FROM gradle:8.6-jdk17 AS builder
 WORKDIR /app
 ENV HOME=/tmp
 
-# gradle 캐시 최적화
-COPY gradlew .
-COPY gradle gradle
+# 1) 캐시 최적화: 최소 파일만 복사
 COPY build.gradle settings.gradle ./
-RUN chmod +x gradlew
-RUN ./gradlew --no-daemon dependencies || true
+
+# 2) 이미지 내 gradle로 wrapper 생성
+RUN gradle --no-daemon wrapper
 
 # 소스 복사 후 빌드
 COPY . .
+RUN chmod +x gradlew
 RUN ./gradlew --no-daemon clean build -x test
 
 # 산출물만 명확히 고정
