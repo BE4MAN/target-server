@@ -1,0 +1,25 @@
+name: PR merged -> notify be4man-server
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify:
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.base.ref, 'develop')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build HMAC signature and POST
+        env:
+          WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.BE4MAN_WEBHOOK_SECRET }}
+        run: |
+          PAYLOAD="$(cat "$GITHUB_EVENT_PATH")"
+          SIG_HEX=$(printf "%s" "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
+          curl -sS -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: pull_request" \
+            -H "X-Hub-Signature-256: sha256:${SIG_HEX}" \
+            --data "$PAYLOAD"
