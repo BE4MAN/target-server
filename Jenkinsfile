@@ -84,8 +84,8 @@ pipeline {
                     echo "Stopping and removing old container: ${env.CURRENT_CONTAINER}"
                     
                     // 이전 서비스 컨테이너 중지 및 삭제
-                    sh "docker stop ${env.CURRENT_CONTAINER}"
-                    sh "docker rm ${env.CURRENT_CONTAINER}"
+                    sh "docker stop ${env.CURRENT_CONTAINER} || true"
+                    sh "docker rm ${env.CURRENT_CONTAINER} || true" //
 
                     // 사용되지 않는 Docker 이미지 정리
                     sh "docker image prune -f"
