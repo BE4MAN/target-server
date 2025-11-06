@@ -26,7 +26,7 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
             -H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}" \
-            "${JENKINS_URL}/job/${JOB_NAME}/build?delay=0sec")
+            "${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?delay=0sec")
           echo "HTTP_STATUS=$STATUS"
           if [ "$STATUS" != "201" ] && [ "$STATUS" != "302" ] && [ "$STATUS" != "200" ]; then
             echo "Failed to trigger Jenkins"; exit 1
