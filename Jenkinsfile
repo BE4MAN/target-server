@@ -7,7 +7,7 @@ pipeline {
     agent any
 
     environment {
-        WEBHOOK_URL      = 'https://webhook.site/f3aea49f-f9ec-4110-ab35-2f5d484aff34'
+        WEBHOOK_URL      = 'https://be4man.store/webhooks/jenkins'
         DOCKER_IMAGE_NAME = 'be4man-target-server'
         DOCKER_NETWORK    = 'be4man-net'
         CURRENT_CONTAINER = 'target-server-blue'
