@@ -1,0 +1,33 @@
+name: Trigger Jenkins Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    env:
+      JENKINS_URL: http://34.22.109.154:8081
+      JOB_NAME: be4man-target-server
+      JENKINS_USER: be4man
+    steps:
+      - name: Get Crumb
+        id: crumb
+        run: |
+          set -e
+          CRUMB=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            "${JENKINS_URL}/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')
+          echo "crumb=$CRUMB" >> $GITHUB_OUTPUT
+
+      - name: Trigger Jenkins (with crumb)
+        run: |
+          set -e
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            -H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}" \
+            "${JENKINS_URL}/job/${JOB_NAME}/build?delay=0sec")
+          echo "HTTP_STATUS=$STATUS"
+          if [ "$STATUS" != "201" ] && [ "$STATUS" != "302" ] && [ "$STATUS" != "200" ]; then
+            echo "Failed to trigger Jenkins"; exit 1
+          fi
