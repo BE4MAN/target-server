@@ -3,54 +3,45 @@ name: PR merged -> notify be4man-server
 on:
   pull_request:
     types: [closed]
+    branches:
+      - '*develop*'
 
 jobs:
   notify:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
-      - name: Debug event summary
+      - name: Debug base/head (optional)
         run: |
-          echo "merged=${{ github.event.pull_request.merged }}"
-          echo "base=${{ github.event.pull_request.base.ref }}"
-          echo "head=${{ github.event.pull_request.head.ref }}"
-          echo "repo=${{ github.event.pull_request.head.repo.html_url }}"
+          echo "base.ref  = ${{ github.event.pull_request.base.ref }}"
+          echo "head.ref  = ${{ github.event.pull_request.head.ref }}"
+          echo "merged    = ${{ github.event.pull_request.merged }}"
 
-      - name: Validate secrets presence
+      - name: Build minimal payload
+        id: payload
         run: |
-          echo "URL present?  ${{ secrets.BE4MAN_WEBHOOK_URL != '' }}"
-          echo "SECRET present? ${{ secrets.BE4MAN_WEBHOOK_SECRET != '' }}"
-
-      - name: Build body.json (compact, no trailing newline)
-        run: |
+          set -euo pipefail
           PR_NUMBER='${{ github.event.pull_request.number }}'
           BRANCH='${{ github.event.pull_request.head.ref }}'
           REPO_URL='${{ github.event.pull_request.head.repo.html_url }}'
           GITHUB_EMAIL='${{ github.event.pull_request.user.email || '' }}'
-
           printf '{"pr_number":%s,"branch":"%s","repository_url":"%s","github_email":"%s"}' \
             "$PR_NUMBER" "$BRANCH" "$REPO_URL" "$GITHUB_EMAIL" > body.json
 
-          perl -0777 -pe 's/\n\z//' -i -- body.json
-          echo "SIZE=$(wc -c < body.json) bytes"
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          cat body.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Sign & POST (binary exact)
+      - name: Sign and POST to be4man-server
         env:
-          WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URL1 }}
+          WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URLL }}
           WEBHOOK_SECRET: ${{ secrets.BE4MAN_WEBHOOK_SECRET }}
         run: |
           set -euo pipefail
-          if [ -z "${WEBHOOK_URL}" ]; then echo "URL secret empty"; exit 1; fi
-          if [ -z "${WEBHOOK_SECRET}" ]; then echo "SECRET empty"; exit 1; fi
-
+          printf %s '${{ steps.payload.outputs.BODY }}' > body.json
           SIG=$(openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary body.json | xxd -p -c 256)
-          echo "SIG=sha256:${SIG}"
-
-          curl -v --fail-with-body -X POST "$WEBHOOK_URL" \
+          curl -sS -X POST "$WEBHOOK_URL" \
             -H 'Content-Type: application/json' \
             -H 'X-GitHub-Event: pull_request' \
-            -H "X-Hub-Signature-256: sha256:${SIG}" \
+            -H "X-Hub-Signature-256: sha256=${SIG}" \
             --data-binary @body.json
