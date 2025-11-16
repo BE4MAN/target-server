@@ -14,7 +14,6 @@ jobs:
       - name: Build minimal payload
         id: payload
         run: |
-          # 안전한 값 추출
           PR_NUMBER='${{ github.event.pull_request.number }}'
           BRANCH='${{ github.event.pull_request.head.ref }}'
           REPO_URL='${{ github.event.pull_request.head.repo.html_url }}'
@@ -41,7 +40,7 @@ jobs:
 
       - name: Sign and POST to be4man-server
         env:
-          WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URL }}
+          WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URL1 }}
           WEBHOOK_SECRET: ${{ secrets.BE4MAN_WEBHOOK_SECRET }}
         run: |
           PAYLOAD='${{ steps.payload.outputs.BODY }}'
