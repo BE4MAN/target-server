@@ -6,17 +6,45 @@ on:
 
 jobs:
   notify:
-    if: >
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.base.ref, 'develop')
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Build HMAC signature and POST
+      - name: Build minimal payload
+        id: payload
+        run: |
+          # 안전한 값 추출
+          PR_NUMBER='${{ github.event.pull_request.number }}'
+          BRANCH='${{ github.event.pull_request.head.ref }}'
+          REPO_URL='${{ github.event.pull_request.head.repo.html_url }}'
+          GITHUB_EMAIL='${{ github.event.pull_request.user.email || '' }}'
+
+          cat > body.json <<'JSON'
+          {
+            "pr_number": __PR_NUMBER__,
+            "branch": "__BRANCH__",
+            "repository_url": "__REPO_URL__",
+            "github_email": "__GITHUB_EMAIL__"
+          }
+          JSON
+
+          sed -i "s/__PR_NUMBER__/${PR_NUMBER}/" body.json
+          sed -i "s|__REPO_URL__|${REPO_URL}|" body.json
+          sed -i "s|__BRANCH__|${BRANCH}|" body.json
+          sed -i "s|__GITHUB_LOGIN__|${GITHUB_LOGIN}|" body.json
+          sed -i "s|__GITHUB_EMAIL__|${GITHUB_EMAIL}|" body.json
+
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          cat body.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Sign and POST to be4man-server
         env:
           WEBHOOK_URL: ${{ secrets.BE4MAN_WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.BE4MAN_WEBHOOK_SECRET }}
         run: |
-          PAYLOAD="$(cat "$GITHUB_EVENT_PATH")"
+          PAYLOAD='${{ steps.payload.outputs.BODY }}'
           SIG_HEX=$(printf "%s" "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
           curl -sS -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
