@@ -15,7 +15,7 @@ jobs:
         run: |
           set -euo pipefail
           PR_NUMBER='${{ github.event.pull_request.number }}'
-          BRANCH='${{ github.event.pull_request.head.ref }}'
+          BRANCH='${{ github.event.pull_request.base.ref }}'
           REPO_URL='${{ github.event.pull_request.head.repo.html_url }}'
           GITHUB_EMAIL='${{ github.event.pull_request.user.email || '' }}'
           AUTHOR_ID='${{ github.event.pull_request.user.id }}'
