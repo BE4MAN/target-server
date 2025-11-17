@@ -8,25 +8,35 @@ on:
 
 jobs:
   notify:
-    if: github.event.pull_request.merged == true
+    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Debug base/head (optional)
         run: |
-          echo "base.ref  = ${{ github.event.pull_request.base.ref }}"
-          echo "head.ref  = ${{ github.event.pull_request.head.ref }}"
-          echo "merged    = ${{ github.event.pull_request.merged }}"
+          echo "base.ref   = ${{ github.event.pull_request.base.ref }}"
+          echo "head.ref   = ${{ github.event.pull_request.head.ref }}"
+          echo "merged     = ${{ github.event.pull_request.merged }}"
+          echo "author.id  = ${{ github.event.pull_request.user.id }}"
+          echo "author.login = ${{ github.event.pull_request.user.login }}"
+          echo "author.email = ${{ github.event.pull_request.user.email }}"
 
       - name: Build minimal payload (write to body.json)
         run: |
           set -euo pipefail
+
           PR_NUMBER='${{ github.event.pull_request.number }}'
           BRANCH='${{ github.event.pull_request.head.ref }}'
           REPO_URL='${{ github.event.pull_request.head.repo.html_url }}'
+
           GITHUB_EMAIL='${{ github.event.pull_request.user.email || '' }}'
 
-          printf '{"pr_number":%s,"branch":"%s","repository_url":"%s","github_email":"%s"}' \
-            "$PR_NUMBER" "$BRANCH" "$REPO_URL" "$GITHUB_EMAIL" > body.json
+          AUTHOR_ID='${{ github.event.pull_request.user.id }}'
+
+          printf '{"pr_number":%s,"branch":"%s","repository_url":"%s","github_email":"%s","githubId":%s,"github_login":"%s"}' \
+            "$PR_NUMBER" "$BRANCH" "$REPO_URL" "$GITHUB_EMAIL" "$AUTHOR_ID" "$AUTHOR_LOGIN" > body.json
+
+          perl -0777 -pe 's/\n\z//' -i -- body.json
 
       - name: Sign and POST to be4man-server
         env:
