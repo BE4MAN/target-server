@@ -11,23 +11,58 @@ jobs:
       JENKINS_URL: http://34.22.109.154:8081
       JOB_NAME: be4man-target-server
       JENKINS_USER: be4man
+
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract DEPLOYMENT_ID from commit message
+        id: parse
+        run: |
+          set -e
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+          echo "Last commit message:"
+          echo "--------------------------------"
+          echo "$COMMIT_MSG"
+          echo "--------------------------------"
+
+          DEPLOYMENT_ID=$(printf "%s" "$COMMIT_MSG" | grep -oE 'DEPLOYMENT_ID=[0-9]+' | head -n1 | cut -d= -f2 || true)
+
+          if [ -z "$DEPLOYMENT_ID" ]; then
+            echo "::error::DEPLOYMENT_ID not found in commit message. Please include [DEPLOYMENT_ID=123] in the merge title/message."
+            exit 1
+          fi
+
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          
       - name: Get Crumb
         id: crumb
         run: |
           set -e
           CRUMB=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
-            "${JENKINS_URL}/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p')
+            "${JENKINS_URL}/crumbIssuer/api/json" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p' || true)
           echo "crumb=$CRUMB" >> $GITHUB_OUTPUT
 
-      - name: Trigger Jenkins (with crumb)
+      - name: Trigger Jenkins (with crumb & DEPLOYMENT_ID)
         run: |
           set -e
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
-            -H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}" \
-            "${JENKINS_URL}/job/${JOB_NAME}/build?delay=0sec")
+          DEPLOYMENT_ID="${{ steps.parse.outputs.deployment_id }}"
+          echo "Triggering Jenkins with DEPLOYMENT_ID=$DEPLOYMENT_ID"
+
+          CURL_ARGS=(
+            -s -o /dev/null -w "%{http_code}" -X POST
+            -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}"
+          )
+
+          if [ -n "${{ steps.crumb.outputs.crumb }}" ]; then
+            CURL_ARGS+=(-H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}")
+          fi
+
+          URL="${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?delay=0sec&DEPLOYMENT_ID=${DEPLOYMENT_ID}"
+
+          STATUS=$(curl "${CURL_ARGS[@]}" "$URL")
           echo "HTTP_STATUS=$STATUS"
+
           if [ "$STATUS" != "201" ] && [ "$STATUS" != "302" ] && [ "$STATUS" != "200" ]; then
             echo "Failed to trigger Jenkins"; exit 1
           fi
