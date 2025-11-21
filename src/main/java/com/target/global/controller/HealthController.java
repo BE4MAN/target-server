@@ -18,5 +18,4 @@ public class HealthController {
         return "✅ server listening on port " + serverPort;
     }
 
-
 }
