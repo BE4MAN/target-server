@@ -1,6 +1,6 @@
 pipeline {
     parameters {
-        string(name: 'DEPLOYMENT_ID', description: 'Deployment ID from external server (BIGINT).')
+        string(name: 'DEPLOYMENT_ID', defaultValue: '2', description: 'Deployment ID from external server (BIGINT).')
     }
 
     agent any
