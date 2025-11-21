@@ -7,6 +7,7 @@ pipeline {
 
     environment {
         WEBHOOK_URL      = 'https://be4man.store/webhooks/jenkins'
+        WEBHOOK_START_URL = 'https://be4man.store/webhooks/jenkins/start'
         DOCKER_IMAGE_NAME = 'be4man-target-server'
         DOCKER_NETWORK    = 'be4man-net'
         CURRENT_CONTAINER = 'target-server-blue'
@@ -16,6 +17,24 @@ pipeline {
     }
 
     stages {
+        stage('Notify Build Start') {
+            steps {
+                script{
+                    def payload = """
+                    {
+                        "deploymentId": "${params.DEPLOYMENT_ID}",
+                        "jobName": "${env.JOB_NAME}",
+                        "buildNumber": "${env.BUILD_NUMBER}"
+                    }
+                    """
+
+                    sh """
+                        curl -X POST --fail-with-body -H "Content-Type: application/json" -d '${payload}' "${env.WEBHOOK_START_URL}"
+                    """
+                }
+            }
+        }
+
         stage('Docker Build') {
             steps {
                 script {
@@ -112,7 +131,7 @@ pipeline {
                 """
             }
         }
-        
+
         failure {
             script {
                 echo "실패 감지: Nginx 원복 시도. ${env.NEXT_CONTAINER} -> ${env.CURRENT_CONTAINER}"
