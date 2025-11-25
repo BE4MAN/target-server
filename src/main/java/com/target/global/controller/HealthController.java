@@ -17,5 +17,4 @@ public class HealthController {
     public String check() {
         return "✅ server listening on port " + serverPort;
     }
-
 }
