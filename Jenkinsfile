@@ -7,7 +7,7 @@ pipeline {
 
   environment {
     WEBHOOK_URL        = 'http://10.50.20.57:8081/webhooks/jenkins'
-    WEBHOOK_START_URL = 'http://10.50.20.57:8081/webhooks/jenkins/start'
+    WEBHOOK_START_URL  = 'http://10.50.20.57:8081/webhooks/jenkins/start'
 
     TARGET_DIR         = '/home/itsm/target-server'
     TARGET_SERVICE     = 'target-server'
@@ -27,12 +27,12 @@ pipeline {
           }
           """.trim()
 
-          sh '''
+          sh """
             curl -sS -X POST --fail-with-body \
               -H "Content-Type: application/json" \
               -d '${payload}' \
               "${env.WEBHOOK_URL}"
-          '''
+          """
         }
       }
     }
@@ -56,31 +56,31 @@ pipeline {
           set -euo pipefail
 
           # bootJar 결과만 선택 (plain.jar 방지)
-          JAR_PATH=\$(ls -1 build/libs/*.jar | grep -v -- '-plain\\.jar$' | head -n 1)
-          if [ -z "\$JAR_PATH" ]; then
+          JAR_PATH=$(ls -1 build/libs/*.jar | grep -v -- '-plain\\.jar$' | head -n 1)
+          if [ -z "$JAR_PATH" ]; then
             echo "No jar found in build/libs"
             ls -al build/libs || true
             exit 1
           fi
-          echo "Using JAR: \$JAR_PATH"
+          echo "Using JAR: $JAR_PATH"
 
           sudo mkdir -p ${TARGET_DIR}
-          sudo cp "\$JAR_PATH" ${TARGET_DIR}/app.jar
+          sudo cp "$JAR_PATH" ${TARGET_DIR}/app.jar
           sudo systemctl restart ${TARGET_SERVICE}
         '''
       }
     }
 
-    stage('Wait for 8081 (port only)') {
+    stage('Wait for TARGET_PORT (port only)') {
       steps {
         sh '''
           set -e
-          for i in \$(seq 1 30); do
+          for i in $(seq 1 30); do
             if ss -lnt | grep -q ':${TARGET_PORT} '; then
               echo "target-server is listening on ${TARGET_PORT}"
               exit 0
             fi
-            echo "waiting target-server... (\$i)"
+            echo "waiting target-server... ($i)"
             sleep 2
           done
           echo "target-server failed to start on ${TARGET_PORT}"
@@ -124,6 +124,7 @@ pipeline {
     }
   }
 }
+
 
 
 
