@@ -114,12 +114,12 @@ pipeline {
         }
         """.trim()
 
-        sh '''
+        sh """
           curl -sS -X POST --fail-with-body \
             -H "Content-Type: application/json" \
             -d '${payload}' \
             "${env.WEBHOOK_URL}"
-        '''
+        """
       }
     }
   }
