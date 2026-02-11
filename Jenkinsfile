@@ -52,41 +52,53 @@ pipeline {
 
     stage('Deploy (copy jar & restart)') {
       steps {
-        sh '''
+        withEnv([
+          "TARGET_DIR=${env.TARGET_DIR}",
+          "TARGET_SERVICE=${env.TARGET_SERVICE}"
+        ]) {
+          sh '''#!/usr/bin/env bash
           set -euo pipefail
-
-          JAR_PATH=\\$(ls -1 build/libs/*.jar | grep -v -- '-plain\\\\.jar\\$' | head -n 1)
-          if [ -z "\\$JAR_PATH" ]; then
+          
+          JAR_PATH=$(ls -1 build/libs/*.jar | grep -v -- '-plain\\.jar$' | head -n 1)
+          if [ -z "$JAR_PATH" ]; then
             echo "No jar found in build/libs"
             ls -al build/libs || true
             exit 1
           fi
-          echo "Using JAR: \\$JAR_PATH"
-
-          sudo /usr/bin/mkdir -p "${TARGET_DIR}"
-          sudo /usr/bin/cp "\\$JAR_PATH" "${TARGET_DIR}/app.jar"
-          sudo /usr/bin/systemctl restart "${TARGET_SERVICE}"
-        '''
+          echo "Using JAR: $JAR_PATH"
+          
+          sudo /usr/bin/mkdir -p "$TARGET_DIR"
+          sudo /usr/bin/cp "$JAR_PATH" "$TARGET_DIR/app.jar"
+          sudo /usr/bin/systemctl restart "$TARGET_SERVICE"
+          '''
+        }
       }
     }
 
     stage('Wait for TARGET_PORT (port only)') {
       steps {
-        sh '''
-          set -e
-          for i in \\$(seq 1 30); do
-            if ss -lnt | grep -q ':${TARGET_PORT} '; then
-              echo "target-server is listening on ${TARGET_PORT}"
-              exit 0
-            fi
-            echo "waiting target-server... (\\$i)"
-            sleep 2
-          done
-          echo "target-server failed to start on ${TARGET_PORT}"
-          sudo /usr/bin/systemctl status "${TARGET_SERVICE}" --no-pager || true
-          sudo /usr/bin/journalctl -u "${TARGET_SERVICE}" -n 200 --no-pager || true
-          exit 1
-        '''
+        withEnv([
+          "TARGET_PORT=${env.TARGET_PORT}",
+          "TARGET_SERVICE=${env.TARGET_SERVICE}"
+        ]) {
+          sh '''#!/usr/bin/env bash
+set -e
+
+for i in $(seq 1 30); do
+  if ss -lnt | grep -q ":${TARGET_PORT} "; then
+    echo "target-server is listening on ${TARGET_PORT}"
+    exit 0
+  fi
+  echo "waiting target-server... ($i)"
+  sleep 2
+done
+
+echo "target-server failed to start on ${TARGET_PORT}"
+sudo /usr/bin/systemctl status "$TARGET_SERVICE" --no-pager || true
+sudo /usr/bin/journalctl -u "$TARGET_SERVICE" -n 200 --no-pager || true
+exit 1
+'''
+        }
       }
     }
   }
@@ -123,6 +135,7 @@ pipeline {
     }
   }
 }
+
 
 
 
