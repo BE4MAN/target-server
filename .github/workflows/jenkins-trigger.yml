@@ -6,7 +6,7 @@ on:
 
 jobs:
   trigger:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       JENKINS_URL: http://10.50.20.57:8080
       JOB_NAME: be4man-target-server
