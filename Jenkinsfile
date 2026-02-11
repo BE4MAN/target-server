@@ -11,7 +11,7 @@ pipeline {
 
     TARGET_DIR         = '/home/itsm/target-server'
     TARGET_SERVICE     = 'target-server'
-    TARGET_PORT        = '8081'
+    TARGET_PORT        = '8082'
   }
 
   stages {
