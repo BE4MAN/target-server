@@ -10,7 +10,7 @@ jobs:
     env:
       JENKINS_URL: http://10.50.20.57:8080
       JOB_NAME: be4man-target-server
-      JENKINS_USER: be4man
+      JENKINS_USER: itsm
 
     steps:
       - name: Checkout
