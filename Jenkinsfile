@@ -52,7 +52,7 @@ pipeline {
 
     stage('Deploy (copy jar & restart)') {
       steps {
-        sh """
+        sh '''
           set -euo pipefail
 
           JAR_PATH=\\$(ls -1 build/libs/*.jar | grep -v -- '-plain\\\\.jar\\$' | head -n 1)
@@ -66,7 +66,7 @@ pipeline {
           sudo /usr/bin/mkdir -p "${TARGET_DIR}"
           sudo /usr/bin/cp "\\$JAR_PATH" "${TARGET_DIR}/app.jar"
           sudo /usr/bin/systemctl restart "${TARGET_SERVICE}"
-        """
+        '''
       }
     }
 
