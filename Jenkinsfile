@@ -72,7 +72,7 @@ pipeline {
 
     stage('Wait for TARGET_PORT (port only)') {
       steps {
-        sh """
+        sh '''
           set -e
           for i in \\$(seq 1 30); do
             if ss -lnt | grep -q ':${TARGET_PORT} '; then
@@ -86,7 +86,7 @@ pipeline {
           sudo /usr/bin/systemctl status "${TARGET_SERVICE}" --no-pager || true
           sudo /usr/bin/journalctl -u "${TARGET_SERVICE}" -n 200 --no-pager || true
           exit 1
-        """
+        '''
       }
     }
   }
