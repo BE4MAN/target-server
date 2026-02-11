@@ -35,20 +35,57 @@ jobs:
 
           echo "Parsed DEPLOYMENT_ID=$DEPLOYMENT_ID"
           echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
-          
+
+      - name: Check Jenkins token & auth (whoAmI)
+        run: |
+          set -e
+
+          if [ -z "${{ secrets.JENKINS_TOKEN }}" ]; then
+            echo "::error::JENKINS_TOKEN is empty"
+            exit 1
+          fi
+
+          echo "Checking Jenkins auth via /whoAmI/api/json ..."
+          RESPONSE=$(curl -sS -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            -w "\nHTTP_STATUS=%{http_code}\n" \
+            "${JENKINS_URL}/whoAmI/api/json" || true)
+
+          echo "=== whoAmI raw response ==="
+          echo "$RESPONSE"
+          echo "==========================="
+
+          HTTP_STATUS=$(echo "$RESPONSE" | grep 'HTTP_STATUS=' | sed 's/HTTP_STATUS=//')
+          echo "HTTP_STATUS=$HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Jenkins auth failed (whoAmI returned HTTP $HTTP_STATUS). Check JENKINS_USER / JENKINS_TOKEN, and Jenkins security settings."
+            exit 1
+          fi
+
       - name: Get Crumb
         id: crumb
         run: |
           set -e
           echo "Requesting Jenkins crumb..."
-          RESPONSE=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+          RESPONSE=$(curl -sS -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+            -w "\nHTTP_STATUS=%{http_code}\n" \
             "${JENKINS_URL}/crumbIssuer/api/json" || true)
-          echo "Crumb response: $RESPONSE"
 
-          CRUMB=$(printf "%s" "$RESPONSE" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p' || true)
+          echo "Crumb response:"
+          echo "$RESPONSE"
+
+          HTTP_STATUS=$(echo "$RESPONSE" | grep 'HTTP_STATUS=' | sed 's/HTTP_STATUS=//')
+          echo "Crumb HTTP_STATUS=$HTTP_STATUS"
+
+          # Jenkins might return 404 if crumbIssuer disabled, or 200 with JSON
+          # Extract crumb only if looks like JSON and status is 200
+          CRUMB=""
+          if [ "$HTTP_STATUS" = "200" ]; then
+            CRUMB=$(printf "%s" "$RESPONSE" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p' || true)
+          fi
 
           if [ -z "$CRUMB" ]; then
-            echo "No crumb found (CRUMB empty). If Jenkins has CSRF disabled this is expected."
+            echo "No crumb found (CRUMB empty). If Jenkins has CSRF disabled, crumbIssuer may be unavailable or not required."
           else
             echo "Crumb extracted (length=$(printf "%s" "$CRUMB" | wc -c))"
           fi
@@ -64,9 +101,8 @@ jobs:
           URL="${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?delay=0sec&DEPLOYMENT_ID=${DEPLOYMENT_ID}"
           echo "Request URL: $URL"
 
-          # build curl args
           CURL_ARGS=(
-            -s
+            -sS
             -w "\nHTTP_STATUS=%{http_code}\n"
             -X POST
             -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}"
@@ -80,7 +116,8 @@ jobs:
           fi
 
           echo "=== Sending request to Jenkins ==="
-          RESPONSE=$(curl "${CURL_ARGS[@]}" "$URL")
+          RESPONSE=$(curl "${CURL_ARGS[@]}" "$URL" || true)
+
           echo "=== Jenkins raw response ==="
           echo "$RESPONSE"
           echo "============================"
@@ -89,6 +126,102 @@ jobs:
           echo "HTTP_STATUS=$HTTP_STATUS"
 
           if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "302" ] && [ "$HTTP_STATUS" != "200" ]; then
-            echo "Failed to trigger Jenkins (non-success HTTP status)"
+            echo "::error::Failed to trigger Jenkins (non-success HTTP status: $HTTP_STATUS)"
             exit 1
           fi
+
+
+# name: Trigger Jenkins Pipeline
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   trigger:
+#     runs-on: self-hosted
+#     env:
+#       JENKINS_URL: http://10.50.20.57:8080
+#       JOB_NAME: be4man-target-server
+#       JENKINS_USER: be4man
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Extract DEPLOYMENT_ID from commit message
+#         id: parse
+#         run: |
+#           set -e
+#           COMMIT_MSG="$(git log -1 --pretty=%B)"
+#           echo "Last commit message:"
+#           echo "--------------------------------"
+#           echo "$COMMIT_MSG"
+#           echo "--------------------------------"
+
+#           DEPLOYMENT_ID=$(printf "%s" "$COMMIT_MSG" | grep -oE 'DEPLOYMENT_ID=[0-9]+' | head -n1 | cut -d= -f2 || true)
+
+#           if [ -z "$DEPLOYMENT_ID" ]; then
+#             echo "::error::DEPLOYMENT_ID not found in commit message. Please include [DEPLOYMENT_ID=123] in the merge title/message."
+#             exit 1
+#           fi
+
+#           echo "Parsed DEPLOYMENT_ID=$DEPLOYMENT_ID"
+#           echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          
+#       - name: Get Crumb
+#         id: crumb
+#         run: |
+#           set -e
+#           echo "Requesting Jenkins crumb..."
+#           RESPONSE=$(curl -s -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}" \
+#             "${JENKINS_URL}/crumbIssuer/api/json" || true)
+#           echo "Crumb response: $RESPONSE"
+
+#           CRUMB=$(printf "%s" "$RESPONSE" | sed -n 's/.*"crumb":"\([^"]*\)".*/\1/p' || true)
+
+#           if [ -z "$CRUMB" ]; then
+#             echo "No crumb found (CRUMB empty). If Jenkins has CSRF disabled this is expected."
+#           else
+#             echo "Crumb extracted (length=$(printf "%s" "$CRUMB" | wc -c))"
+#           fi
+
+#           echo "crumb=$CRUMB" >> "$GITHUB_OUTPUT"
+
+#       - name: Trigger Jenkins (with crumb & DEPLOYMENT_ID) - DEBUG
+#         run: |
+#           set -e
+#           DEPLOYMENT_ID="${{ steps.parse.outputs.deployment_id }}"
+#           echo "Triggering Jenkins with DEPLOYMENT_ID=$DEPLOYMENT_ID"
+
+#           URL="${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?delay=0sec&DEPLOYMENT_ID=${DEPLOYMENT_ID}"
+#           echo "Request URL: $URL"
+
+#           # build curl args
+#           CURL_ARGS=(
+#             -s
+#             -w "\nHTTP_STATUS=%{http_code}\n"
+#             -X POST
+#             -u "${JENKINS_USER}:${{ secrets.JENKINS_TOKEN }}"
+#           )
+
+#           if [ -n "${{ steps.crumb.outputs.crumb }}" ]; then
+#             echo "Using Jenkins Crumb"
+#             CURL_ARGS+=(-H "Jenkins-Crumb: ${{ steps.crumb.outputs.crumb }}")
+#           else
+#             echo "No crumb set – calling Jenkins without CSRF header"
+#           fi
+
+#           echo "=== Sending request to Jenkins ==="
+#           RESPONSE=$(curl "${CURL_ARGS[@]}" "$URL")
+#           echo "=== Jenkins raw response ==="
+#           echo "$RESPONSE"
+#           echo "============================"
+
+#           HTTP_STATUS=$(echo "$RESPONSE" | grep 'HTTP_STATUS=' | sed 's/HTTP_STATUS=//')
+#           echo "HTTP_STATUS=$HTTP_STATUS"
+
+#           if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "302" ] && [ "$HTTP_STATUS" != "200" ]; then
+#             echo "Failed to trigger Jenkins (non-success HTTP status)"
+#             exit 1
+#           fi
