@@ -27,12 +27,12 @@ pipeline {
           }
           """.trim()
 
-          sh """
+          sh '''
             curl -sS -X POST --fail-with-body \
               -H "Content-Type: application/json" \
               -d '${payload}' \
               "${env.WEBHOOK_URL}"
-          """
+          '''
         }
       }
     }
@@ -52,7 +52,7 @@ pipeline {
 
     stage('Deploy (copy jar & restart)') {
       steps {
-        sh """
+        sh '''
           set -euo pipefail
 
           # bootJar 결과만 선택 (plain.jar 방지)
@@ -67,13 +67,13 @@ pipeline {
           sudo mkdir -p ${TARGET_DIR}
           sudo cp "\$JAR_PATH" ${TARGET_DIR}/app.jar
           sudo systemctl restart ${TARGET_SERVICE}
-        """
+        '''
       }
     }
 
     stage('Wait for 8081 (port only)') {
       steps {
-        sh """
+        sh '''
           set -e
           for i in \$(seq 1 30); do
             if ss -lnt | grep -q ':${TARGET_PORT} '; then
@@ -87,7 +87,7 @@ pipeline {
           sudo systemctl status ${TARGET_SERVICE} --no-pager || true
           sudo journalctl -u ${TARGET_SERVICE} -n 200 --no-pager || true
           exit 1
-        """
+        '''
       }
     }
   }
@@ -114,12 +114,12 @@ pipeline {
         }
         """.trim()
 
-        sh """
+        sh '''
           curl -sS -X POST --fail-with-body \
             -H "Content-Type: application/json" \
             -d '${payload}' \
             "${env.WEBHOOK_URL}"
-        """
+        '''
       }
     }
   }
